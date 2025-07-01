@@ -8,4 +8,28 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      - mysql
+    environment:
+      DB_HOST: mysql
+      DB_NAME: myappdb
+      DB_USER: hamza
+      DB_PASSWORD: hamza123
+    command: ["./entrypoint.sh"]
+
+  mysql:
+    image: mysql:8.0
+    container_name: my-mysql-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: myappdb
+      MYSQL_USER: hamza
+      MYSQL_PASSWORD: hamza123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
