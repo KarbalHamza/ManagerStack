@@ -3,3 +3,4 @@ uvicorn[standard]
 sqlalchemy
 mysql-connector-python
 alembic
+python-jose[cryptography]
