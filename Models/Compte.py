@@ -8,7 +8,8 @@ class Compte(Base):
     ID_Compte = Column(Integer, primary_key=True, index=True)
     Nom_Compte = Column(String(255), nullable=False)
     Type_De_Compte = Column(String(255), nullable=False)
-    ID_User = Column(Integer, ForeignKey("User.ID_User"), nullable=False)
+    ID_User = Column(Integer, ForeignKey("users.ID_User", ondelete="CASCADE"), nullable=False)
+
 
     user = relationship("User", back_populates="comptes")
     plateformes = relationship("ComptePlateforme", back_populates="compte")
