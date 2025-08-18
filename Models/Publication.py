@@ -9,11 +9,11 @@ class Publication(Base):
     description = Column(String(500), nullable=True)
     location = Column(String(255), nullable=True)
     status = Column(String(50), nullable=False)
-
     Date_De_Creation = Column(Date, nullable=False)
     Date_De_Plannification = Column(Date, nullable=True)
-
     ID_Profil = Column(Integer, ForeignKey("Profil.ID_Profil"), nullable=False)
 
+    # Relations
     profil = relationship("Profil", back_populates="publications")
     medias = relationship("Media", back_populates="publication")
+    planning = relationship("Planning", back_populates="publication", uselist=False)

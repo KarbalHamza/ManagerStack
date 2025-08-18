@@ -1,51 +1,111 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
+from Models.Platforme import Plateforme
 from database import get_db
-from models.plateforme import Plateforme
-from schemas.plateforme_schema import PlateformeCreate, PlateformeOut
+from typing import List, Dict
 
-router = APIRouter(prefix="/plateformes", tags=["Plateformes"])
+router = APIRouter(
+    prefix="/api/plateformes",
+    tags=["PLATEFORMES"],
+    responses={404: {"description": "Non trouvé"}}
+)
 
-# ➕ Créer une plateforme
-@router.post("/", response_model=PlateformeOut)
-def create_plateforme(plateforme: PlateformeCreate, db: Session = Depends(get_db)):
-    new_plateforme = Plateforme(**plateforme.dict())
-    db.add(new_plateforme)
-    db.commit()
-    db.refresh(new_plateforme)
-    return new_plateforme
+@router.post("/", status_code=status.HTTP_201_CREATED)
+async def create_plateforme(
+    nom: str,
+    url: str,
+    type_plateforme: str,
+    db: Session = Depends(get_db)
+) -> Dict:
+    """Crée une nouvelle plateforme"""
+    try:
+        new_plateforme = Plateforme(
+            NomPlateforme=nom,
+            URL=url,
+            TypePlateforme=type_plateforme
+        )
+        db.add(new_plateforme)
+        db.commit()
+        db.refresh(new_plateforme)
+        return {
+            "status": "success",
+            "data": new_plateforme
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Erreur de création: {str(e)}"
+        )
 
-# 📄 Voir toutes les plateformes
-@router.get("/", response_model=list[PlateformeOut])
-def get_plateformes(db: Session = Depends(get_db)):
-    return db.query(Plateforme).all()
+@router.get("/", response_model=List[Dict])
+async def get_all_plateformes(db: Session = Depends(get_db)) -> List[Dict]:
+    """Liste toutes les plateformes"""
+    plateformes = db.query(Plateforme).all()
+    return [{
+        "id": plateforme.ID_Plateforme,
+        "nom": plateforme.NomPlateforme,
+        "url": plateforme.URL,
+        "type": plateforme.TypePlateforme
+    } for plateforme in plateformes]
 
-# 👁️ Voir une plateforme par ID
-@router.get("/{plateforme_id}", response_model=PlateformeOut)
-def get_plateforme(plateforme_id: int, db: Session = Depends(get_db)):
-    plateforme = db.query(Plateforme).get(plateforme_id)
+@router.get("/{plateforme_id}")
+async def get_plateforme(
+    plateforme_id: int,
+    db: Session = Depends(get_db)
+) -> Dict:
+    """Récupère une plateforme spécifique"""
+    plateforme = db.query(Plateforme).filter(Plateforme.ID_Plateforme == plateforme_id).first()
     if not plateforme:
-        raise HTTPException(status_code=404, detail="Plateforme not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Plateforme non trouvée"
+        )
     return plateforme
 
-# ✏️ Modifier une plateforme
-@router.put("/{plateforme_id}", response_model=PlateformeOut)
-def update_plateforme(plateforme_id: int, update: PlateformeCreate, db: Session = Depends(get_db)):
-    plateforme = db.query(Plateforme).get(plateforme_id)
+@router.put("/{plateforme_id}")
+async def update_plateforme(
+    plateforme_id: int,
+    nom: str,
+    url: str,
+    type_plateforme: str,
+    db: Session = Depends(get_db)
+) -> Dict:
+    """Met à jour une plateforme existante"""
+    plateforme = db.query(Plateforme).filter(Plateforme.ID_Plateforme == plateforme_id).first()
     if not plateforme:
-        raise HTTPException(status_code=404, detail="Plateforme not found")
-    for key, value in update.dict().items():
-        setattr(plateforme, key, value)
-    db.commit()
-    db.refresh(plateforme)
-    return plateforme
-
-# ❌ Supprimer une plateforme
-@router.delete("/{plateforme_id}")
-def delete_plateforme(plateforme_id: int, db: Session = Depends(get_db)):
-    plateforme = db.query(Plateforme).get(plateforme_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Plateforme non trouvée"
+        )
+    
+    try:
+        plateforme.NomPlateforme = nom
+        plateforme.URL = url
+        plateforme.TypePlateforme = type_plateforme
+        db.commit()
+        db.refresh(plateforme)
+        return plateforme
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Erreur de mise à jour: {str(e)}"
+        )
+@router.delete("/{plateforme_id}")  # Pas de status_code=204
+async def delete_plateforme(
+    plateforme_id: int,
+    db: Session = Depends(get_db)
+) -> Dict[str, str]:
+    plateforme = db.query(Plateforme).filter(Plateforme.ID_Plateforme == plateforme_id).first()
     if not plateforme:
-        raise HTTPException(status_code=404, detail="Plateforme not found")
-    db.delete(plateforme)
-    db.commit()
-    return {"message": "Plateforme supprimée"}
+        raise HTTPException(status_code=404, detail="Plateforme non trouvée")
+    
+    try:
+        db.delete(plateforme)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+    
+    return {"message": "Plateforme supprimée avec succès"}  # Retourne un JSON
